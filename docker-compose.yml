@@ -1,13 +1,6 @@
 version: '3.5'
 
 x-environment: &common-environment
-  USE_DOCKER: "yes"
-  DJANGO_SETTINGS_MODULE: config.settings
-  DJANGO_SECRET_KEY: not_so_secret
-  DJANGO_DEFAULT_FILE_STORAGE: django.core.files.storage.FileSystemStorage
-  DATABASE_URL: postgres://dbuser:dbpassword@postgres:5432/dblocal
-  REDIS_URL: redis://redis:6379
-  PYTHONBREAKPOINT: ipdb.set_trace
   POSTGRES_DB: postgres
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
@@ -19,12 +12,9 @@ services:
       dockerfile: ./docker/Dockerfile
     environment:
       <<: *common-environment
-      DJANGO_ADMIN_URL: admin/
       PORT: 8000
       HOST: 0.0.0.0
       DJANGO_DEBUG: "True"
-      GOOGLE_OAUTH2_CLIENT_ID: ""
-    # command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
@@ -35,9 +25,5 @@ services:
 
   db:
     image: postgres
-    # volumes:
-    #   - ./data/db:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      <<: *common-environment
