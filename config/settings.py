@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 3th party libs
+    "rest_framework",
     # Own modules
     'api.event',
     'api.ticket',
