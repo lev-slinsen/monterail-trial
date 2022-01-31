@@ -55,5 +55,5 @@ The organization of the event can add additional requirements for reserving / pu
 The validation options are optional and should be considered at the type of tickets level:
 
 1. even - we can only buy tickets in the quantity that is even
-1. avoid one - we can only buy tickets in a quantity that will not leave only 1 ticket available
-1. all together - we can buy tickets if all seats will be around each other
+1. avoid one - we can only buy tickets in a quantity that will not leave only 1 ticket available in a row
+1. all together - we can buy tickets if all seats will be around each other in a row
