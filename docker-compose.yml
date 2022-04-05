@@ -4,6 +4,7 @@ x-environment: &common-environment
   POSTGRES_DB: postgres
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
+  REDIS_URL: "redis://redis:6379/0"
 
 services:
   appserver:
@@ -21,9 +22,28 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - celery
+      - redis
     command: /start.sh
 
   db:
     image: postgres
     environment:
       <<: *common-environment
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "63798:6379"
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    environment: *common-environment
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    command: celery -A config worker -l info
