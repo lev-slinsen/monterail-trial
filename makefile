@@ -12,3 +12,9 @@ superuser:
 
 migrations:
 	docker-compose run --rm appserver python manage.py makemigrations
+
+migrate:
+	docker-compose run --rm appserver python manage.py migrate
+
+test:
+	docker-compose run --rm appserver python manage.py test
