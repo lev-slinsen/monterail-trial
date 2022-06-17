@@ -3,22 +3,27 @@ from copy import copy
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from api.event.models import Event, EventRow
 from api.reservation.models import Reservation
 from api.reservation.payment_gateway import PaymentGateway
 from api.ticket.models import Ticket
 
 
 class ReservationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reservation
+        fields = ['id', 'created_at', 'tickets', 'user', 'status']
+        read_only_fields = ['id', 'created_at', 'status']
 
     def validate(self, attrs):
         ticket_ids = [ticket.id for ticket in attrs['tickets']]
         tickets = Ticket.objects.filter(id__in=ticket_ids)
+        rows = tickets.distinct('row').values_list('row', flat=True)
 
         # Validating for same event
         #
-        if len(tickets.distinct('event_row__related_event')) > 1:
+        if len(tickets.distinct('event')) > 1:
             raise serializers.ValidationError({'error': 'Selected tickets belong to different events.'})
+        event = tickets.first().event
 
         # Validating if already reserved
         #
@@ -28,36 +33,26 @@ class ReservationSerializer(serializers.ModelSerializer):
 
         # Validating availability based on event categories
         #
-        event_id = tickets.values_list('event_row__related_event', flat=True).distinct().first()
-        event = Event.objects.get(id=event_id)
-
         if event.category == 'even' and (len(tickets) % 2) != 0:
             raise serializers.ValidationError({'error': 'Number of tickets for this event must be even.'})
 
         if event.category == 'avoid_one':
-            row_ids = tickets.values_list('event_row').distinct()
-            rows = EventRow.objects.filter(id__in=row_ids)
             for row in rows:
-                available_tickets = row.tickets.all().exclude(id__in=ticket_ids).filter(reservation__isnull=True)
+                available_tickets = Ticket.objects\
+                    .exclude(id__in=ticket_ids)\
+                    .filter(reservation__isnull=True, event=event, row=row)
                 if len(available_tickets) == 1:
-                    raise serializers.ValidationError({'error': "Can't leave a single tickets in a row."})
+                    raise serializers.ValidationError({'error': "Can't leave a single tickets in a row unreserved."})
 
         if event.category == 'all_together':
-            row_ids = tickets.values_list('event_row').distinct()
-            rows = EventRow.objects.filter(id__in=row_ids)
             for row in rows:
-                row_tickets = tickets & Ticket.objects.filter(event_row=row)
+                row_tickets = tickets & Ticket.objects.filter(event=event, row=row)
                 if len(row_tickets) > 1:
                     diff = row_tickets[0].id
                     for i, ticket in enumerate(row_tickets):
                         if ticket.id - i != diff:
                             raise serializers.ValidationError({'error': "All seats in each row must be near each other."})
         return attrs
-
-    class Meta:
-        model = Reservation
-        fields = ['id', 'created_at', 'tickets', 'user', 'status']
-        read_only_fields = ['id', 'created_at', 'status']
 
 
 class PaymentSerializer(serializers.Serializer):
@@ -91,7 +86,7 @@ class PaymentSerializer(serializers.Serializer):
         pgw_values = [attrs_copy[i] for i in attrs_copy]
         pgw = PaymentGateway()
         try:
-            pgw_reply = pgw.charge(*pgw_values)
+            pgw.charge(*pgw_values)
         except Exception as ex:
             raise ValidationError({'error': ex})
 

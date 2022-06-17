@@ -10,7 +10,7 @@ from api.reservation.serializers import ReservationSerializer, PaymentSerializer
 
 class ReservationCreateView(generics.CreateAPIView):
     """
-    {'tickets': [45, 80],}
+{'tickets': [45, 80],}
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ReservationSerializer
@@ -39,12 +39,12 @@ class ReservationListView(generics.ListAPIView):
 class ReservationPayView(APIView):
     # TODO: Add body field to Swagger
     """
-    {
-        "reservation": 1,
-        "amount": 123,
-        "token": "token",
-        "currency": "GBP"
-    }
+{
+    "reservation": 1,
+    "amount": 123,
+    "token": "token",
+    "currency": "GBP"
+}
     """
     permission_classes = [permissions.IsAuthenticated]
 

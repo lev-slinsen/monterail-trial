@@ -6,4 +6,5 @@ set -o nounset
 
 
 python manage.py migrate
-python manage.py runserver_plus --print-sql --keep-meta-shutdown ${HOST}:${PORT}
+python manage.py runserver ${HOST}:${PORT}
+#python manage.py runserver_plus --print-sql --keep-meta-shutdown ${HOST}:${PORT}

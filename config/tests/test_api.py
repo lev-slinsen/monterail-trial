@@ -6,8 +6,9 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from api.event.models import Event, EventRow
+from api.event.models import Event
 from api.reservation.models import Reservation
+from api.ticket.models import create_row
 
 User = get_user_model()
 now = timezone.now()
@@ -19,7 +20,8 @@ class ApiTest(APITestCase):
     def setUp(self):
         # Users
         #
-        self.user = User.objects.create(username='user_1')
+        self.user =         User.objects.create(username='user')
+        self.user_admin =   User.objects.create(username='admin', is_superuser=True, is_staff=True)
 
         # Events
         #
@@ -31,21 +33,21 @@ class ApiTest(APITestCase):
 
         # Rows and tickets
         #
-        self.event_row =                        EventRow.objects.create(related_event=self.event, title='A', number_of_seats=3, ticket_price=1)
-        self.tickets_event_row =                self.event_row.tickets.all()
+        create_row(event=self.event, seats=3, price=1)
+        self.tickets_event_row = self.event.tickets.all()
 
-        self.event_even_row =                   EventRow.objects.create(related_event=self.event_even, title='A', number_of_seats=3, ticket_price=1)
-        self.tickets_event_even_row =           self.event_even_row.tickets.all()
+        create_row(event=self.event_even, seats=3, price=1)
+        self.tickets_event_even_row = self.event_even.tickets.all()
 
-        self.event_avoid_one_row_a =            EventRow.objects.create(related_event=self.event_avoid_one, title='A', number_of_seats=3, ticket_price=1)
-        self.tickets_event_avoid_one_row_a =    self.event_avoid_one_row_a.tickets.all()
-        self.event_avoid_one_row_b =            EventRow.objects.create(related_event=self.event_avoid_one, title='B', number_of_seats=3, ticket_price=1)
-        self.tickets_event_avoid_one_row_b =    self.event_avoid_one_row_b.tickets.all()
+        create_row(event=self.event_avoid_one, seats=3, price=1, row='a')
+        self.tickets_event_avoid_one_row_a = self.event_avoid_one.tickets.filter(row='a')
+        create_row(event=self.event_avoid_one, seats=3, price=1, row='b')
+        self.tickets_event_avoid_one_row_b = self.event_avoid_one.tickets.filter(row='b')
 
-        self.event_all_together_row_a =         EventRow.objects.create(related_event=self.event_all_together, title='A', number_of_seats=3, ticket_price=1)
-        self.tickets_event_all_together_row_a = self.event_all_together_row_a.tickets.all()
-        self.event_all_together_row_b =         EventRow.objects.create(related_event=self.event_all_together, title='B', number_of_seats=3, ticket_price=1)
-        self.tickets_event_all_together_row_b = self.event_all_together_row_b.tickets.all()
+        create_row(event=self.event_all_together, seats=3, price=1, row='a')
+        self.tickets_event_all_together_row_a = self.event_all_together.tickets.filter(row='a')
+        create_row(event=self.event_all_together, seats=3, price=1, row='b')
+        self.tickets_event_all_together_row_b = self.event_all_together.tickets.filter(row='b')
 
 
 class TestEvent(ApiTest):
@@ -74,12 +76,16 @@ class TestReservation(ApiTest):
         res = self.client.get(reverse('my_reservations'))
         self.assertEqual(res.status_code, 403)
 
-        res = self.client.post(reverse('reservation_pay'))
-        self.assertEqual(res.status_code, 403)
+        # res = self.client.post(reverse('reservation_pay'))
+        # self.assertEqual(res.status_code, 403)
 
         self.client.force_login(self.user)
 
         data = {"tickets": ''}
+        res = self.client.post(reverse('reservation_create'), data, format='json')
+        self.assertEqual(res.status_code, 400)
+
+        data = {"tickets": [100500]}
         res = self.client.post(reverse('reservation_create'), data, format='json')
         self.assertEqual(res.status_code, 400)
 
@@ -88,10 +94,6 @@ class TestReservation(ApiTest):
 
         # Create new reservation
         #
-        data = {"tickets": [100500]}
-        res = self.client.post(reverse('reservation_create'), data, format='json')
-
-        self.assertEqual(res.status_code, 400)
 
         data = {"tickets": list(self.tickets_event_row.values_list('id', flat=True))}
         res = self.client.post(reverse('reservation_create'), data, format='json')
@@ -177,7 +179,7 @@ class TestReservation(ApiTest):
         # * in operation
         # = reserved
 
-        # [ * _ _ ] Error
+        # [ * * _ ] Error
         # [ * * * ]
         data = {"tickets": ticket_ids_row_a[0:2] + ticket_ids_row_b}
         res = self.client.post(reverse('reservation_create'), data, format='json')
@@ -239,7 +241,34 @@ class TestTicket(ApiTest):
         self.client.force_login(self.user)
 
         res = self.client.get(reverse('ticket_list', kwargs={'event_id': self.event.id}))
-        self.assertEqual(res.data['count'], len(self.event_row.tickets.all()))
+        self.assertEqual(res.data['count'], len(self.event.tickets.all()))
 
         res = self.client.get(reverse('ticket_list', kwargs={'event_id': self.event.id + 1000}))
         self.assertEqual(res.data['count'], 0)
+
+    def test_ticket_create_row_errors(self):
+        res = self.client.post(reverse('ticket_create_row'))
+        self.assertEqual(res.status_code, 403)
+
+        # Non-admin access
+        self.client.force_login(self.user)
+        res = self.client.post(reverse('ticket_create_row'))
+        self.assertEqual(res.status_code, 403)
+
+        self.client.force_login(self.user_admin)
+
+        # Wrong number of seats
+        data = {"event": self.event.id, "seats": 0, "price": 1}
+        res = self.client.post(reverse('ticket_create_row'), data, format='json')
+        self.assertEqual(res.status_code, 400)
+
+        # Wrong event id
+        data = {"event": 100500, "seats": 3, "price": 1}
+        res = self.client.post(reverse('ticket_create_row'), data, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_ticket_create_row(self):
+        self.client.force_login(self.user_admin)
+        data = {"event": self.event.id, "seats": 3, "price": 1}
+        res = self.client.post(reverse('ticket_create_row'), data, format='json')
+        self.assertEqual(res.status_code, 201)

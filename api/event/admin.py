@@ -1,13 +1,14 @@
 from django.contrib import admin
 
-from api.event.models import Event, EventRow
+from api.event.models import Event
+from api.ticket.models import Ticket
 
 
-class EventRowInline(admin.TabularInline):
+class TicketInline(admin.TabularInline):
     # TODO: add pagination
-    model = EventRow
-    fields = ('id', 'title', 'number_of_seats', 'ticket_price')
-    readonly_fields = ('id',)
+    model = Ticket
+    fields = ('id', 'row', 'seat', 'price', 'reservation')
+    readonly_fields = ('id', 'reservation')
     ordering = ("id",)
     extra = 1
 
@@ -18,4 +19,4 @@ class EventAdmin(admin.ModelAdmin):
     fields = ('id', 'title', 'datetime_start', 'category', 'created_at', 'updated_at')
     readonly_fields = ('id', 'created_at', 'updated_at')
     list_filter = ('category',)
-    inlines = (EventRowInline,)
+    inlines = (TicketInline,)
